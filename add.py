@@ -2,16 +2,16 @@
 
 # Jacky Liang 2016
                                                                           
-## OS and Python Version                                                  
+# OS and Python Version
 # Python 2.7.8                                                         
 # OS X Yosemite 10.10.5 (14F27)
                                                                           
-## Libraries:                                                             
+# Libraries:
 # Uses the mechanize + lxml library
-# 	pip install mechanize
-# 	pip install lxml
+#     pip install mechanize
+#     pip install lxml
 
-## TODO:
+# TODO:
 # 1. Drop classes
 # 2. Better/more error handling
 # 3. Not hardcoding the term selection
@@ -34,12 +34,12 @@ else:
                                                                           
 # Grab username, password, and classes from info.json                     
 try:
-	username = info['username']                                               
-	password = info['password']
-	classes = info['classes']
+    username = info['username']                                               
+    password = info['password']
+    classes = info['classes']
 except Exception as e:
-	print 'ERROR: There is something wrong with your info.json file!'
-	sys.exit(0)
+    print 'ERROR: There is something wrong with your info.json file!'
+    sys.exit(0)
 
 # Create a new Mechanize browser
 br = mechanize.Browser()
@@ -76,10 +76,10 @@ add_drop = br.open('https://bannersso.drexel.edu/ssomanager/c/SSB?pkg=bwszkfrag.
 # Select the second form in the page which is the select
 # for the academic year
 try:
-	br.select_form(nr=1)
+    br.select_form(nr=1)
 except Exception as e:
-	print 'ERROR: Seems like your login credentials are wrong. Check info.json to make sure!'
-	sys.exit(0)
+    print 'ERROR: Seems like your login credentials are wrong. Check info.json to make sure!'
+    sys.exit(0)
 
 print '(OK)'
 
@@ -93,10 +93,10 @@ response = br.submit()
 
 # Select the second form in the add/remove class page
 try:
-	br.select_form(nr=1)
-except Exception as e:
-	print 'ERROR: It seems like it is not your registration time yet. If it is, then try again in a few seconds.'
-        sys.exit(0)
+    br.select_form(nr=1)
+except Exception:
+    print 'ERROR: It seems like it is not your registration time yet. If it is, then try again in a few seconds.'
+    sys.exit(0)
 
 print '*****************************************************************'
 print '                  Submitting classes'
@@ -105,19 +105,19 @@ print '*****************************************************************'
 # Iterate through our 'classes' object from info.json
 # which contains the ID tag and CRN
 for id_tag, crn in classes.items():
-	# Convert ID tags to integers
-	id_tag_int = int(id_tag)
-	# Only valid ID tags and non-spaces will be submitted
-	# to the form
-	if(id_tag_int >= 1 and id_tag_int <= 10):
-		# Ignore if input is empty
-		if crn:
-			print 'Attempting to add CRN ' + crn + "..."
-			# Assign the CRN as the value based on the form name
-			# and crn_id form ID tag
-			add_control = br.form.find_control(name='CRN_IN', id='crn_id' + id_tag)
-			add_control.value = crn
-			# print 'Successfully added your class with CRN ' + crn + "!"
+    # Convert ID tags to integers
+    id_tag_int = int(id_tag)
+    # Only valid ID tags and non-spaces will be submitted
+    # to the form
+    if 1 <= id_tag_int <= 10:
+        # Ignore if input is empty
+        if crn:
+            print 'Attempting to add CRN ' + crn + "..."
+            # Assign the CRN as the value based on the form name
+            # and crn_id form ID tag
+            add_control = br.form.find_control(name='CRN_IN', id='crn_id' + id_tag)
+            add_control.value = crn
+            # print 'Successfully added your class with CRN ' + crn + "!"
 
 # Submit the form after all textboxes filled in
 response = br.submit()
@@ -133,33 +133,33 @@ html = br.response().read()
 root = lxml.html.fromstring(html)
 
 # Get total credits
-credits = root.xpath('/html/body/div[3]/form/table[2]/tr[1]/td[2]/text()')
+total_credits = root.xpath('/html/body/div[3]/form/table[2]/tr[1]/td[2]/text()')
 try:
-        credits = credits[0].strip(' ')
-except Exception as e:
-        credits = '0'
+        total_credits = total_credits[0].strip(' ')
+except Exception:
+        total_credits = '0'
 
 # Print out all added classes
 print '*****************************************************************'
-print '       All your added classes with total credits: ' + credits
+print '       All your added classes with total credits: ' + total_credits
 print '*****************************************************************'
 
 for k,v in f[1]._pairs():
-	# Ignore dummy values
-	if v == 'DUMMY':
-		continue
-	if k == 'CRN_IN':
-		test += '[' + v + '] '
-	if k == 'SUBJ':
-		test += v
-	if k == 'CRSE':
-		test += '-' + v
-	if k == 'SEC':
-		test += ' ' + v
-	if k == 'TITLE':
-		test += ' ' + v
-		print '    ' + test
-		test = ''
+    # Ignore dummy values
+    if v == 'DUMMY':
+        continue
+    if k == 'CRN_IN':
+        test += '[' + v + '] '
+    if k == 'SUBJ':
+        test += v
+    if k == 'CRSE':
+        test += '-' + v
+    if k == 'SEC':
+        test += ' ' + v
+    if k == 'TITLE':
+        test += ' ' + v
+        print '    ' + test
+        test = ''
 
 # Print out all errors
 print '*****************************************************************'
@@ -167,9 +167,9 @@ print '          All errors will be shown here (if any)'
 print '*****************************************************************'
 
 for i in range(10):
-	# Print all errors 
-	errors = root.xpath('/html/body/div[3]/form/table[4]/tr[' + str(i) + ']/td/text()')
+    # Print all errors 
+    errors = root.xpath('/html/body/div[3]/form/table[4]/tr[' + str(i) + ']/td/text()')
 
-	# Join the list and print it if not empty
-	if errors:
-		print '    [x] ' + ' '.join(errors)
+    # Join the list and print it if not empty
+    if errors:
+        print '    [x] ' + ' '.join(errors)
