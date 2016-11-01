@@ -20,156 +20,161 @@
 import mechanize, os, json, sys
 import lxml.html
 
-# Path and name to info.json which is where we store
-# our credentials and classes to add
-info_db = './info.json'                                                 
-                                                                          
-# Parse info.json which contains our three input params                   
-if os.path.exists(info_db):                                               
-    with open(info_db) as data_file:                                      
-        info = json.load(data_file)                                       
-else:                                                                     
-    print "ERROR: download info.json here: https://github.com/jackyliang/Drexel-Shaft-Protection/blob/master/change_me_to_info.json"                       
-    sys.exit(0)                                                           
-                                                                          
-# Grab username, password, and classes from info.json                     
-try:
-    username = info['username']                                               
+
+def parse_info(info="./info.json"):
+    # Parse info.json which contains our three input params
+    if os.path.exists(info):
+        with open(info) as data_file:
+            info = json.load(data_file)
+    else:
+        raise Exception
+
+    # Grab username, password, and classes from info.json
+    username = info['username']
     password = info['password']
     classes = info['classes']
-except Exception as e:
-    print 'ERROR: There is something wrong with your info.json file!'
-    sys.exit(0)
 
-# Create a new Mechanize browser
-br = mechanize.Browser()
+    return username, password, classes
 
-# Allow redirection as Drexel One has a ton of redirections
-br.set_handle_redirect(True)
 
-# Drexel One login URL
-url = 'https://login.drexel.edu/cas/login?service=https%3A%2F%2Fone.drexel.edu%2Fc%2Fportal%2Flogin'
+def drexel_login(browser, username, password):
+    """
+    Logs the mechanize browser in to DrexelOne
+    """
+    # Drexel One login URL
+    url = 'https://login.drexel.edu/cas/login?service=https%3A%2F%2Fone.drexel.edu%2Fc%2Fportal%2Flogin'
 
-# Open the Drexel One URL
-response = br.open(url)
+    # Open the Drexel One URL
+    browser.open(url)
 
-print 'Reading info.json'
+    # Select the first form element where the username and password is
+    browser.select_form(nr=0)
+    browser.form['username'] = username
+    browser.form['password'] = password
 
-# Select the first form element where the username and
-# password is
-br.select_form(nr = 0)
-br.form['username'] = username
-br.form['password'] = password
+    # Login by submitting the form
+    browser.submit()
 
-print '(OK)'
-print 'Logging in for: ' + username
 
-# Login by submitting the form
-br.submit()
+def add_classes(browser, term, classes):
+    """
+    Adds all the classes using the browser instance logged in to the add/drop classes page
+    """
+    # Navigate to the "Add/Drop Classes" page
+    browser.open('https://bannersso.drexel.edu'
+            '/ssomanager/c/SSB?pkg=bwszkfrag.P_DisplayFinResponsibility%3Fi_url%3Dbwskfreg.P_AltPin')
 
-# Navigate to the "Academics" page
-academics = br.open('https://one.drexel.edu/web/university/academics?gpi=10230')
+    # Select the academic year term
+    browser.select_form(nr=1)
+    form = browser.form
+    form['term_in'] = [term, ]
 
-# Navigate to the "Add/Drop Classes" page
-add_drop = br.open('https://bannersso.drexel.edu/ssomanager/c/SSB?pkg=bwszkfrag.P_DisplayFinResponsibility%3Fi_url%3Dbwskfreg.P_AltPin')
+    # Submit the form
+    browser.submit()
 
-# Select the second form in the page which is the select
-# for the academic year
-try:
-    br.select_form(nr=1)
-except Exception as e:
-    print 'ERROR: Seems like your login credentials are wrong. Check info.json to make sure!'
-    sys.exit(0)
+    # Select the second form in the add/remove class page
+    browser.select_form(nr=1)
 
-print '(OK)'
+    for id_tag, crn in classes.items():
+        # Convert ID tags to integers
+        id_tag_int = int(id_tag)
+        # Only valid ID tags and non-spaces will be submitted
+        # to the form
+        if 1 <= id_tag_int <= 10:
+            # Ignore if input is empty
+            if crn:
+                print 'Attempting to add CRN ' + crn + "..."
+                # Assign the CRN as the value based on the form name and crn_id form ID tag
+                add_control = browser.form.find_control(name='CRN_IN', id='crn_id' + id_tag)
+                add_control.value = crn
 
-# Select the academic year term
-form = br.form
-# TODO: select the first item instead of hardcoding
-form['term_in'] = ['201625',]
+    # Submit the form after all textboxes filled in
+    browser.submit()
 
-# Submit the form
-response = br.submit()
+    # Convert all forms to a list to access its key-value pairs
+    return list(browser.forms())
 
-# Select the second form in the add/remove class page
-try:
-    br.select_form(nr=1)
-except Exception:
-    print 'ERROR: It seems like it is not your registration time yet. If it is, then try again in a few seconds.'
-    sys.exit(0)
 
-print '*****************************************************************'
-print '                  Submitting classes'
-print '*****************************************************************'
+def main():
+    #Read info.json
+    print "Reading info.json"
+    try:
+        username, password, classes = parse_info()
+    except KeyError:
+        print "There was an error reading your info.json"
+        sys.exit(1)
+    except:
+        print "ERROR: download info.json here: " \
+              "https://github.com/jackyliang/Drexel-Shaft-Protection/blob/master/change_me_to_info.json"
+        sys.exit(1)
+    print '(OK)'
 
-# Iterate through our 'classes' object from info.json
-# which contains the ID tag and CRN
-for id_tag, crn in classes.items():
-    # Convert ID tags to integers
-    id_tag_int = int(id_tag)
-    # Only valid ID tags and non-spaces will be submitted
-    # to the form
-    if 1 <= id_tag_int <= 10:
-        # Ignore if input is empty
-        if crn:
-            print 'Attempting to add CRN ' + crn + "..."
-            # Assign the CRN as the value based on the form name
-            # and crn_id form ID tag
-            add_control = br.form.find_control(name='CRN_IN', id='crn_id' + id_tag)
-            add_control.value = crn
-            # print 'Successfully added your class with CRN ' + crn + "!"
+    # Create a new Mechanize browser
+    br = mechanize.Browser()
 
-# Submit the form after all textboxes filled in
-response = br.submit()
+    # Allow redirection as Drexel One has a ton of redirections
+    br.set_handle_redirect(True)
 
-# Convert all forms to a list to access its key-value pairs
-f = list(br.forms())
+    #Log in
+    print 'Logging in for: ' + username
+    drexel_login(br, username, password)
 
-# Generate a string for each class
-test = ''
+    # Select the second form in the page which is the select for the academic year
+    try:
+        br.select_form(nr=1)
+    except Exception:
+        print 'ERROR: Seems like your login credentials are wrong. Check info.json to make sure!'
+        sys.exit(0)
 
-# Read the HTML and convert it to XML for traversal
-html = br.response().read()
-root = lxml.html.fromstring(html)
+    print '(OK)'
 
-# Get total credits
-total_credits = root.xpath('/html/body/div[3]/form/table[2]/tr[1]/td[2]/text()')
-try:
-        total_credits = total_credits[0].strip(' ')
-except Exception:
-        total_credits = '0'
+    f = add_classes(br, '201625', classes)
 
-# Print out all added classes
-print '*****************************************************************'
-print '       All your added classes with total credits: ' + total_credits
-print '*****************************************************************'
+    # Read the HTML and convert it to XML for traversal
+    html = br.response().read()
+    root = lxml.html.fromstring(html)
 
-for k,v in f[1]._pairs():
-    # Ignore dummy values
-    if v == 'DUMMY':
-        continue
-    if k == 'CRN_IN':
-        test += '[' + v + '] '
-    if k == 'SUBJ':
-        test += v
-    if k == 'CRSE':
-        test += '-' + v
-    if k == 'SEC':
-        test += ' ' + v
-    if k == 'TITLE':
-        test += ' ' + v
-        print '    ' + test
-        test = ''
+    # Get total credits
+    total_credits = root.xpath('/html/body/div[3]/form/table[2]/tr[1]/td[2]/text()')
+    try:
+            total_credits = total_credits[0].strip(' ')
+    except Exception:
+            total_credits = '0'
 
-# Print out all errors
-print '*****************************************************************'
-print '          All errors will be shown here (if any)'
-print '*****************************************************************'
+    # Print out all added classes
+    print '*****************************************************************'
+    print '       All your added classes with total credits: ' + total_credits
+    print '*****************************************************************'
 
-for i in range(10):
-    # Print all errors 
-    errors = root.xpath('/html/body/div[3]/form/table[4]/tr[' + str(i) + ']/td/text()')
+    for k,v in f[1]._pairs():
+        class_info = ''
+        # Ignore dummy values
+        if v == 'DUMMY':
+            continue
+        if k == 'CRN_IN':
+            class_info += '[' + v + '] '
+        if k == 'SUBJ':
+            class_info += v
+        if k == 'CRSE':
+            class_info += '-' + v
+        if k == 'SEC':
+            class_info += ' ' + v
+        if k == 'TITLE':
+            class_info += ' ' + v
+            print '    ' + class_info
 
-    # Join the list and print it if not empty
-    if errors:
-        print '    [x] ' + ' '.join(errors)
+    # Print out all errors
+    print '*****************************************************************'
+    print '          All errors will be shown here (if any)'
+    print '*****************************************************************'
+
+    for i in range(10):
+        # Print all errors
+        errors = root.xpath('/html/body/div[3]/form/table[4]/tr[' + str(i) + ']/td/text()')
+
+        # Join the list and print it if not empty
+        if errors:
+            print '    [x] ' + ' '.join(errors)
+
+if __name__ == "__main__":
+    main()
