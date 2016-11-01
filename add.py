@@ -33,8 +33,9 @@ def parse_info(info="./info.json"):
     username = info['username']
     password = info['password']
     classes = info['classes']
+    term = info['term']
 
-    return username, password, classes
+    return username, password, classes, term
 
 
 def drexel_login(browser, username, password):
@@ -99,7 +100,7 @@ def main():
     #Read info.json
     print "Reading info.json"
     try:
-        username, password, classes = parse_info()
+        username, password, classes, term = parse_info()
     except KeyError:
         print "There was an error reading your info.json"
         sys.exit(1)
@@ -115,7 +116,7 @@ def main():
     # Allow redirection as Drexel One has a ton of redirections
     br.set_handle_redirect(True)
 
-    #Log in
+    # Log in
     print 'Logging in for: ' + username
     drexel_login(br, username, password)
 
@@ -124,11 +125,11 @@ def main():
         br.select_form(nr=1)
     except Exception:
         print 'ERROR: Seems like your login credentials are wrong. Check info.json to make sure!'
-        sys.exit(0)
+        sys.exit(1)
 
     print '(OK)'
 
-    f = add_classes(br, '201625', classes)
+    f = add_classes(br, term, classes)
 
     # Read the HTML and convert it to XML for traversal
     html = br.response().read()
@@ -138,7 +139,7 @@ def main():
     total_credits = root.xpath('/html/body/div[3]/form/table[2]/tr[1]/td[2]/text()')
     try:
             total_credits = total_credits[0].strip(' ')
-    except Exception:
+    except:
             total_credits = '0'
 
     # Print out all added classes
